@@ -1,6 +1,6 @@
 """OpenCV CamerasFusion class for multiple cameras fusion."""
 
-from Camera import Camera
+from cameras_fusion import Camera
 
 import argparse
 from enum import Enum

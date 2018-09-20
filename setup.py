@@ -9,7 +9,7 @@ with open('requirements.txt') as f:
 
 setup(
     name='camera_fusion',
-    version='0.0.1',
+    version='0.0.3',
     author='Pierre Nagorny',
     author_email='pierre.nagorny@univ-smb.fr',
     description='Multiple cameras calibration and fusion with OpenCV Python.',
