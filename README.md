@@ -1,7 +1,7 @@
 [![PyPI version](https://img.shields.io/pypi/v/camera-fusion.svg)](https://pypi.python.org/pypi/camera-fusion/)
 [![PyPI pyversions](https://img.shields.io/pypi/pyversions/camera-fusion.svg)](https://pypi.python.org/pypi/camera-fusion/)
 [![PyPI status](https://img.shields.io/pypi/status/camera-fusion.svg)](https://pypi.python.org/pypi/camera-fusion/)
-[![Code coverage](https://github.com/a1rb4Ck/camera-fusion/tests/reports/coverage.svg)](https://github.com/a1rb4Ck/camera-fusion/tests/reports/coverage-html/index.html)
+[<img src="https://cdn.rawgit.com/a1rb4Ck/camera-fusion/master/tests/reports/coverage.svg" with="100%" height="20">](https://htmlpreview.github.io/?https://raw.githubusercontent.com/a1rb4Ck/camera-fusion/master/tests/reports/coverage-html/index.html)
 [![PyPI license](https://img.shields.io/pypi/l/camera-fusion.svg)](https://pypi.python.org/pypi/camera-fusion/)  
 
 camera-fusion
