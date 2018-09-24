@@ -1,24 +1,23 @@
+"""camera_fusion package installation parameters."""
+
 from setuptools import setup
 from setuptools import find_packages
 
 with open('README.md', 'r') as fh:
     long_description = fh.read()
 
-with open('requirements.txt') as f:
-    requirements = f.read().splitlines()
-
 setup(
-    name='camera_fusion',
-    version='0.0.3',
+    name='camera-fusion',
+    version='0.0.4',
     author='Pierre Nagorny',
     author_email='pierre.nagorny@univ-smb.fr',
     description='Multiple cameras calibration and fusion with OpenCV Python.',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    url='https://github.com/a1rb4Ck/camera_fusion',
+    url='https://github.com/a1rb4Ck/camera-fusion',
     license='MIT',
     install_requires=['numpy>=1.15.1',
-                      'opencv-python>=3.4.3.18',
+                      'opencv-contrib-python >= 3.4.3.18',
                       'sortednp>=0.2.0'],
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
@@ -34,5 +33,7 @@ setup(
         'Topic :: Software Development :: Libraries :: Python Modules',
         'Topic :: Multimedia :: Video',
         'Topic :: Multimedia :: Video :: Capture'],
-    packages=find_packages(),
-    scripts=['scripts/camera_calibration.py', 'scripts/cameras_fusion.py'])
+    keywords='opencv fusion image video',
+    packages=find_packages(exclude=['contrib', 'docs', 'tests*']),
+    scripts=['bin/camera_calibration', 'bin/cameras_fusion'],
+    zip_safe=True)

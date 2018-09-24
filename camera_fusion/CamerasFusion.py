@@ -1,6 +1,6 @@
 """OpenCV CamerasFusion class for multiple cameras fusion."""
 
-from cameras_fusion import Camera
+from camera_fusion.Camera import Camera
 
 import argparse
 from enum import Enum
@@ -12,9 +12,9 @@ import subprocess
 import sys
 try:
     import cv2
+    from cv2 import aruco
 except ImportError:
-    print("ERROR python3-opencv must be installed!")
-    exit(1)
+    raise ImportError('ERROR opencv-contrib-python must be installed!')
 
 
 class CamerasFusion(object):
@@ -27,7 +27,7 @@ class CamerasFusion(object):
     """
 
     def __init__(self, cameras):
-        """Set up cameras fusion.
+        """Initialize the Camera object variables.
 
         Args:
             cameras (list of Camera): Cameras to be blend.
@@ -41,45 +41,52 @@ class CamerasFusion(object):
         self.i = 15  # 3 seconds delay before frame capture.
         self.running = True
 
-    def calibrate_fusion(self):
-        """Launch calibration routing for the fusion of all Cameras."""
-        ratio = 0.99
-        reprojThresh = 10  # 4
-        if Path('fusionParameters.npy').exists():
-            print("Found fusionParameters.npy.")
-            self.homographies = np.load('fusionParameters.npy')
+    def initialize(self):
+        """Set up cameras fusion. Launch calibration if necessary."""
+        self.ratio = 0.99
+        self.reprojThresh = 10  # 4
+        fusionParameters_path = Path('.data/fusionParameters.npy')
+        if fusionParameters_path.exists():
+            print("Found fusionParameters.npy.\n")
+            self.homographies = np.load(str(fusionParameters_path))
             if len(self.homographies) + 1 != len(self.cameras):
                 raise ValueError(
                     'fusionParameters.npy cameras number (=%d) is different'
                     ' from the specified cameras number (=%d!)'
                     'Remove fusionParameters.npy to compute a new one.' % (
                         len(self.homographies) + 1, len(self.cameras)))
+            self.fusion_calibration_is_done = True
         else:
-            print('Starting the fusion calibration routine.')
-            keypoints_features_list = []
-            # Loop thru Cameras and assure every Camera got the same keypoints.
-            while self.running:
-                for camera in self.cameras:
-                    camera.corners, camera.ids = self.detect_keypoints(camera)
-                if sum(x is not None for x in [
-                        cam.ids for cam in self.cameras]) == len(self.cameras):
-                    break
-            if not self.running:
-                return False
-            # Match features between many Cameras detected corners keypoints
-            for camera in self.cameras[1:]:
-                H = self.match_keypoints(
-                    self.cameras[0].corners, camera.corners,
-                    self.cameras[0].ids, camera.ids, ratio, reprojThresh)
-                if H is None:
-                    raise ValueError('In fusion calibration: Can not match at '
-                                     ' least 4 keypoints between cameras.\n'
-                                     'Please re-do the calibration.')
-                    self.fusion_calibration_is_done = False
-                    self.homographies = []
-                self.homographies.append(H)
+            self.calibrate_fusion()
+
+    def calibrate_fusion(self):
+        """Launch calibration routing for the fusion of all Cameras."""
+        print('Starting the fusion calibration routine.')
+        keypoints_features_list = []
+        # Loop thru Cameras and assure every Camera matches the same keypoints.
+        while self.running:
+            for camera in self.cameras:
+                camera.corners, camera.ids = self.detect_keypoints(camera)
+            if sum(x is not None for x in [
+                    cam.ids for cam in self.cameras]) == len(self.cameras):
+                break
+        if not self.running:
+            return False
+        # Match features between many Cameras detected corners keypoints
+        for camera in self.cameras[1:]:
+            H = self.match_keypoints(
+                self.cameras[0].corners, camera.corners,
+                self.cameras[0].ids, camera.ids, self.ratio, self.reprojThresh)
+            if H is None:
+                raise ValueError('In fusion calibration: Can not match at '
+                                 ' least 4 keypoints between cameras.\n'
+                                 'Please re-do the calibration.')
+                self.fusion_calibration_is_done = False
+                self.homographies = []
+            self.homographies.append(H)
+        fusionParameters_path = Path('.data/fusionParameters.npy')
+        np.save(str(fusionParameters_path), self.homographies)
         self.fusion_calibration_is_done = True
-        np.save('fusionParameters.npy', self.homographies)
         print("Fusion calibration done!")
 
     def detect_keypoints(self, camera):
@@ -153,11 +160,9 @@ class CamerasFusion(object):
 
         # At least 4 matches to compute an homography
         if ids_0[indices[0]].shape[0] > 12:
-            # Homography between points in kps_0 and kps_1
-            # homography, status = cv2.findHomography(
-            #     kps_0[indices[0]], kps_1[indices[1]], cv2.RANSAC)
+            # Homography between points in kps_1 and kps_0
             homography, status = cv2.findHomography(
-                kps_1[indices[1]], kps_0[indices[1]], cv2.RANSAC)
+                kps_1[indices[1]], kps_0[indices[0]], cv2.RANSAC)
             # reprojThresh)
 
             if status.sum() != kps_0[indices[0]].shape[0]:
@@ -238,107 +243,9 @@ class CamerasFusion(object):
 
     def release(self):
         """Release all Camera VideoCapture instances."""
-        print('Quit..')
+        print('\nQuit..')
         for camera in self.cameras:
-            camera.cap.release()
-            time.sleep(1)
+            camera.release()
+            while(camera.thread.is_alive()):
+                time.sleep(0.05)
             print('Camera %d released' % camera.cam_id)
-
-
-def main(argv):
-    """Setup, calibrate and live display two blended Cameras."""
-    # Get default camera id based on current platform.
-    if sys.platform == 'linux' or sys.platform == 'linux2':
-        default_cam_ids = ['/dev/video0', '/dev/video1', '/dev/video2']
-    else:  # darwin win32 win64
-        default_cam_ids = [0, 1, 2]
-
-    # Parse CLI arguments
-    ap = argparse.ArgumentParser()
-    ap.add_argument('-i', '--cam_ids', default=default_cam_ids,
-                    help="camera ids list (ex: ='[/dev/video0, /dev/video1]'")
-    ap.add_argument('-s', '--settings',
-                    help="camera settings list "
-                    "(ex:[[(3, 640), (4, 480)], [(3, 640), (4, 480)]]")
-    args = vars(ap.parse_args())
-
-    # Default camera settings
-    if args["settings"]:
-        settings = args["settings"]
-    else:
-        settings = [[(cv2.CAP_PROP_FRAME_WIDTH, 1280),
-                     (cv2.CAP_PROP_FRAME_HEIGHT, 720),
-                     (cv2.CAP_PROP_FPS, 30),
-                     (cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG')),
-                     (cv2.CAP_PROP_AUTOFOCUS, 1)],
-                    [(cv2.CAP_PROP_FRAME_WIDTH, 1280),
-                     (cv2.CAP_PROP_FRAME_HEIGHT, 720),
-                     (cv2.CAP_PROP_FPS, 30),
-                     (cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG')),
-                     (cv2.CAP_PROP_AUTOFOCUS, 1)],
-                    [(cv2.CAP_PROP_FRAME_WIDTH, 1280),
-                     (cv2.CAP_PROP_FRAME_HEIGHT, 720),
-                     (cv2.CAP_PROP_FPS, 30),
-                     (cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG')),
-                     (cv2.CAP_PROP_AUTOFOCUS, 1)]]
-
-    aruco_dict_num = cv2.aruco.DICT_6X6_1000
-    # also available: DICT_5X5_1000, DICT_4X4_50, DICT_ARUCO_ORIGINAL
-
-    # Initialize Cameras objects with calibration and lens correction
-    cam_ids = args['cam_ids']
-    if sys.platform != 'linux' and sys.platform != 'linux2':
-        cam_ids = [int(cam_id) for cam_id in cam_ids]
-    cameras = []
-    for cam_id, setting in zip(cam_ids, settings):
-        print('Setting up camera %s.' % cam_id)
-        cam = Camera(
-            cam_id=cam_id, aruco_dict_num=aruco_dict_num, settings=setting)
-        cameras.append(cam)
-
-    cameras_fusion = CamerasFusion(cameras)
-    cameras_fusion.calibrate_fusion()
-
-    # Open basic live view
-    print('Live view running...')
-    print('  k to calibrate correction')
-    print('  m to save frame')
-    print('  v loop between gray2rgb and blue2rgb fusion')
-    print('  ESC or q to exit.')
-    selected_fused = cameras_fusion.read_blue2rgb_fused
-    while True:
-        if cameras_fusion.fusion_calibration_is_done:
-            frame = selected_fused()
-        else:
-            for camera in cameras_fusion.cameras:
-                frame = camera.read_undistort()
-                frame = camera.draw_text(
-                    frame, 'Please manually adjust Cameras overlapping, then c'
-                    'alibrate.', y=camera.height - (camera.height/20),
-                    thickness=2)
-                # time.sleep(0.5)
-                k = cv2.waitKey(50) % 256
-                if k == 27 or k == ord('q'):
-                    break
-        cv2.imshow("Live camera", frame)
-        k = cv2.waitKey(40) % 256
-        if k == 27 or k == ord('q'):
-            break
-        elif k == ord('k'):
-            if cameras_fusion.calibrate_fusion():
-                print('Calibration done!')
-        elif k == ord('m'):
-            cv2.imwrite('frame_fused_%s.png' % cam.cam_id, frame)
-        elif k == ord('v'):
-            if selected_fused == cameras_fusion.read_blue2rgb_fused:
-                selected_fused = cameras_fusion.read_gray2rgb_fused
-            else:
-                selected_fused = cameras_fusion.read_blue2rgb_fused
-
-    cameras_fusion.release()  # DO NOT FORGET TO RELEASE!
-    print('All released!')
-    cv2.destroyAllWindows()
-
-
-if __name__ == '__main__':
-    main(sys.argv[1:])

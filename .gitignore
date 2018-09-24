@@ -241,6 +241,5 @@ pip-selfcheck.json
 # End of https://www.gitignore.io/api/macos,python,pycharm
 
 ### Project specific ###
-cameraParameters_*
-defaultConfig.xml
 frame_*
+data/*
