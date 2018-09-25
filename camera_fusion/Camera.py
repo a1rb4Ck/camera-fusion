@@ -230,7 +230,7 @@ class Camera(object):
 
     """
 
-    def __init__(self, cam_id, aruco_dict_num, settings=None):
+    def __init__(self, cam_id, aruco_dict_num, vertical_flip=None, settings=None):
         """Initialize the Camera object variables.
 
         Args:
@@ -245,6 +245,13 @@ class Camera(object):
             print('  Found a v4l camera path, resolved to: %s, cam_id: %d' % (cam_id, self.cam_id))
         else:
             self.cam_id = int(cam_id)
+
+        if vertical_flip is True:
+            print('Set vertical flip.')
+            self.vertical_flip = True
+        else:
+            self.vertical_flip = False
+
         self.aruco_dict_num = aruco_dict_num
         self.settings = settings
         self.t0 = time.time()
@@ -283,6 +290,7 @@ class Camera(object):
         self.width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 
         # Camera correction
+        
         self.calibrate_camera_correction()
 
         # Start read thread
@@ -301,6 +309,7 @@ class Camera(object):
         # http://www.peterklemperer.com/blog/2017/10/29/opencv-charuco-camera-calibration/
         # http://www.morethantechnical.com/2017/11/17/projector-camera-calibration-the-easy-way/
         # https://mecaruco2.readthedocs.io/en/latest/notebooks_rst/Aruco/sandbox/ludovic/aruco_calibration_rotation.html
+
         defaultConfig_path = Path('./data/defaultConfig.xml')
         if defaultConfig_path.exists():
             print('  Found defaultConfig.xml.\nCAUTION: be sure settings in d'
@@ -328,12 +337,15 @@ class Camera(object):
             './data/cameraParameters_%s.xml' % self.cam_id)
         if not cameraParameters_path.exists():
             print('\nStarting the %s lens calibration routine.' % self.cam_id)
+            self.cap.release()  # Release VideoCapture before CLI usage
             subprocess.call(
                 ['opencv_interactive-calibration', '-d=0.25', '-h=7', '-w=5',
-                 '--sz=%f' % self.charuco_square_length, '--t=charuco',
-                 '--pf=' + str(defaultConfig_path),
-                 '--ci=' + str(self.cam_id),
-                 '--of=' + str(cameraParameters_path)])
+                 '-sz=%f' % self.charuco_square_length, '--t=charuco',
+                 '-pf=' + str(defaultConfig_path),
+                 '-ci=' + str(self.cam_id),
+                 '-of=' + str(cameraParameters_path),
+                 '-flip=' + str(self.vertical_flip).lower()])
+            self.cap = cv2.VideoCapture(self.cam_id)
         # Load the camera calibration file.
         if cameraParameters_path.exists():
             print('  Found cameraParameters_%s.xml' % self.cam_id)
@@ -566,7 +578,7 @@ class Camera(object):
     def start_camera_thread(self):
         """Start the Camera frame update Thread."""
         self.thread.start()
-        time.sleep(0.2)
+        time.sleep(0.5)
 
     def _update_frame(self):
         """Read VideoCapture to update Camera current frame."""
@@ -576,6 +588,8 @@ class Camera(object):
             ret, frame = self.cap.read()
             if ret is False:
                 print('%s | Error reading frame!' % self.cam_id)
+            if self.vertical_flip:
+                frame = cv2.flip(frame, -1)
             self.current_frame = frame
 
     def read_undistort(self):
