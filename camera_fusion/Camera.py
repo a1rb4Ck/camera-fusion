@@ -238,7 +238,13 @@ class Camera(object):
             aruco_dict_num (int): ChAruco dictionnary number used for calibr.
             settings (list): list of tuple with specific camera settings.
         """
-        self.cam_id = cam_id
+        # Resolve cam_id v4l path
+        if 'v4l' in cam_id:
+            cam_id = Path(cam_id).resolve()
+            self.cam_id = int(str(cam_id).replace('/dev/video', ''))
+            print('  Found a v4l camera path, resolved to: %s, cam_id: %d' % (cam_id, self.cam_id))
+        else:
+            self.cam_id = int(cam_id)
         self.aruco_dict_num = aruco_dict_num
         self.settings = settings
         self.t0 = time.time()
@@ -326,6 +332,7 @@ class Camera(object):
                 ['opencv_interactive-calibration', '-d=0.25', '-h=7', '-w=5',
                  '--sz=%f' % self.charuco_square_length, '--t=charuco',
                  '--pf=' + str(defaultConfig_path),
+                 '--ci=' + str(self.cam_id),
                  '--of=' + str(cameraParameters_path)])
         # Load the camera calibration file.
         if cameraParameters_path.exists():
@@ -642,3 +649,4 @@ class Camera(object):
         f.write('<camera_resolution>\n  %d %d</camera_resolution>\n'
                 '</opencv_storage>\n' % (self.width, self.height))
         f.close()
+
