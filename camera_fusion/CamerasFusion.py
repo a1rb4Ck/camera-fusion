@@ -45,7 +45,7 @@ class CamerasFusion(object):
         """Set up cameras fusion. Launch calibration if necessary."""
         self.ratio = 0.99
         self.reprojThresh = 10  # 4
-        fusionParameters_path = Path('.data/fusionParameters.npy')
+        fusionParameters_path = Path('./data/fusionParameters.npy')
         if fusionParameters_path.exists():
             print("Found fusionParameters.npy.\n")
             self.homographies = np.load(str(fusionParameters_path))
@@ -63,6 +63,7 @@ class CamerasFusion(object):
         """Launch calibration routing for the fusion of all Cameras."""
         print('Starting the fusion calibration routine.')
         keypoints_features_list = []
+        self.homographies = []
         # Loop thru Cameras and assure every Camera matches the same keypoints.
         while self.running:
             for camera in self.cameras:
@@ -84,7 +85,7 @@ class CamerasFusion(object):
                 self.fusion_calibration_is_done = False
                 self.homographies = []
             self.homographies.append(H)
-        fusionParameters_path = Path('.data/fusionParameters.npy')
+        fusionParameters_path = Path('./data/fusionParameters.npy')
         np.save(str(fusionParameters_path), self.homographies)
         self.fusion_calibration_is_done = True
         print("Fusion calibration done!")
@@ -170,9 +171,10 @@ class CamerasFusion(object):
                       ' keypoints (%d/%d matches).' % (
                         status.sum(), kps_0[indices[0]].shape[0]))
             return homography
+        self.release()
         raise ValueError(
-            'cv2.findHomography can not match at least 12 of 24'
-            ' corners (%d/24 matches).' % (kps_0[indices[0]].shape[0]))
+            'cv2.findHomography can not match at least the half of the'
+            ' corners (%d/24 matched).' % (kps_0[indices[0]].shape[0]))
         return None
 
     def read_blue2rgb_fused(self):
@@ -189,7 +191,7 @@ class CamerasFusion(object):
                 frame, homography, (frame.shape[1], frame.shape[0]))
             frames.append(frame)
         return cv2.merge(  # Blue channel
-            (frames[0][:, :, 0], frames[1][:, :, 0], frames[2][:, :, 0]))
+            (frames[0][:, :, 0], frames[1][:, :, 0], frames[1][:, :, 0]))    # TODO: frame[1] to frame[2]
 
     def read_gray2rgb_fused(self):
         """Fuse 3 cameras grayed frames to rgb."""
@@ -204,7 +206,7 @@ class CamerasFusion(object):
                 frame, homography, (frame.shape[1], frame.shape[0]))
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             frames.append(frame)
-        return cv2.merge((frame[0], frame[1], frame[2]))
+        return cv2.merge((frame[0], frame[1], frame[1]))  # TODO: frame[1] to frame[2]
 
     def read_weighted_fused(self, blending_ratio):
         """Fuse all cameras with weighted blend."""
@@ -249,3 +251,4 @@ class CamerasFusion(object):
             while(camera.thread.is_alive()):
                 time.sleep(0.05)
             print('Camera %d released' % camera.cam_id)
+

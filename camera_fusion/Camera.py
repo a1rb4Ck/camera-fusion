@@ -217,6 +217,7 @@ class Camera(object):
         cam_id (string): Camera or V4L id (ex: /dev/video0 /dev/v4l_by_id/...).
         charuco_marker_size (float): black square length on the printed board.
         charuco_square_length (float): Aruco marker length on the print.
+        focus (float): Camera focus value for camera which supports focusing.
         height (int): Camera frame height in pixels.
         width (int): Camera frame width in pixels.
         camera_matrix (OpenCV matrix): OpenCV camera correction matrix.
@@ -230,12 +231,14 @@ class Camera(object):
 
     """
 
-    def __init__(self, cam_id, aruco_dict_num, vertical_flip=None, settings=None):
+    def __init__(self, cam_id, aruco_dict_num, focus=None, vertical_flip=None, settings=None):
         """Initialize the Camera object variables.
 
         Args:
             cam_id (string): Camera or V4L id.
             aruco_dict_num (int): ChAruco dictionnary number used for calibr.
+            vertical_flip (bool): Trigger vertical frame flipping.
+            focus (float): Camera focus value for camera which supports focusing.
             settings (list): list of tuple with specific camera settings.
         """
         # Resolve cam_id v4l path
@@ -245,6 +248,8 @@ class Camera(object):
             print('  Found a v4l camera path, resolved to: %s, cam_id: %d' % (cam_id, self.cam_id))
         else:
             self.cam_id = int(cam_id)
+
+        self.focus = focus
 
         if vertical_flip is True:
             print('Set vertical flip.')
@@ -277,23 +282,17 @@ class Camera(object):
 
         if not self.cap.isOpened():
             raise ValueError('Camera', self.cam_id, 'not found!')
-        if self.settings:
-            print('Camera settings:')
-            for setting in self.settings:
-                self.cap.set(setting[0], setting[1])
-            for setting in self.settings:
-                print('  %s: %d' % (
-                      CV_CAP_PROP(setting[0]).name, self.cap.get(setting[0])))
+
+        self.set_camera_settings()
 
         # Current camera recording frame size
         self.height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         self.width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 
         # Camera correction
-        
         self.calibrate_camera_correction()
 
-        # Start read thread
+        # Start the VideoCapture read() thread
         self.stop = False
         self.start_camera_thread()
 
@@ -336,7 +335,7 @@ class Camera(object):
         cameraParameters_path = Path(
             './data/cameraParameters_%s.xml' % self.cam_id)
         if not cameraParameters_path.exists():
-            print('\nStarting the %s lens calibration routine.' % self.cam_id)
+            print('\nStarting the camera id%s lens calibration routine.' % self.cam_id)
             self.cap.release()  # Release VideoCapture before CLI usage
             subprocess.call(
                 ['opencv_interactive-calibration', '-d=0.25', '-h=7', '-w=5',
@@ -345,7 +344,10 @@ class Camera(object):
                  '-ci=' + str(self.cam_id),
                  '-of=' + str(cameraParameters_path),
                  '-flip=' + str(self.vertical_flip).lower()])
+
             self.cap = cv2.VideoCapture(self.cam_id)
+            self.set_camera_settings()  # Re-set camera settings
+
         # Load the camera calibration file.
         if cameraParameters_path.exists():
             print('  Found cameraParameters_%s.xml' % self.cam_id)
@@ -357,6 +359,10 @@ class Camera(object):
                 'cameraResolution').at(0).real())
             self.height = int(calibration_file.getNode(
                 'cameraResolution').at(1).real())
+
+            if calibration_file.getNode('focus').isReal():  # If there is a focus val
+                self.focus = float(calibration_file.getNode('focus').real())
+                self.set_focus(self.focus * 50)
 
             # Specific Fish-Eye parameters
             # self.r = calibrationParams.getNode("R").mat()
@@ -604,11 +610,40 @@ class Camera(object):
         time.sleep(0.1)  # 0.05
         self.cap.release()
 
+    def save_focus(self):
+        """Save the camera focus value to the cameraParameters.xml file."""
+        if self.focus:
+            cameraParameters_path = Path(
+                './data/cameraParameters_%s.xml' % self.cam_id)
+            self.write_append_to_FileStorage(
+                str(cameraParameters_path), string= \
+                '<focus>%f</focus>\n' % self.focus)
+
+    def set_camera_settings(self):
+        """Set all the camera settings."""
+        if self.settings:
+            print('Camera settings:')
+            for setting in self.settings:
+                self.cap.set(setting[0], setting[1])
+            for setting in self.settings:
+                print('  %s: %d' % (
+                      CV_CAP_PROP(setting[0]).name, self.cap.get(setting[0])))
+
     def set_focus(self, focus):
         """Set camera focus."""
-        self.cap.set(28, focus * 0.02)
+        self.cap.set(28, focus * 0.02)  # CV_CAP_PROP_FOCUS
         # min: 0.0 (infinity), max: 1.0 (1cm), increment:0.02 for C525 & C920
-        print(self.cam_id, '| Focus set:', self.cap.get(28))
+        self.focus = self.cap.get(28)
+        print('Camera %d | Focus set:%f' % (self.cam_id, self.focus))
+
+    def show_focus_window(self):
+        """Show a window with a focus slider."""
+        cv2.namedWindow('Focus', cv2.WINDOW_FREERATIO)
+        cv2.resizeWindow('Focus', 600, 30)
+        focus = self.focus
+        cv2.createTrackbar('Camera %d focus' % self.cam_id, 'Focus', 0, 20, self.set_focus)
+        if focus:
+            cv2.setTrackbarPos('Camera %d focus' % self.cam_id, 'Focus', focus)
 
     def test_camera(self):
         """Basic camera test."""
@@ -616,17 +651,34 @@ class Camera(object):
         test_frame = self.read()
         # Simple self-test
         if test_frame.shape[0] != self.height:
-            print('WARNING: Camera height is different from the setted one!'
+            print('WARNING: Camera height is different from the setted one!\n'
                   'Check the defaultConfig.xml camera_resolution.')
         if test_frame.shape[1] != self.width:
-            raise ValueError('Camera width is different from the setted one!'
+            raise ValueError('Camera width is different from the setted one!\n'
                              'Check the defaultConfig.xml camera_resolution.')
+
+    def write_append_to_FileStorage(self, str_path, string):
+        """Append a string to a .xml file opened with cv2.FileStorage.
+
+        Args:
+            str_path (str): the file path to append.
+            string (str): the string to append.
+
+        """
+        f = open(str_path, 'r+')
+        ln = f.readline()
+        while ln != '</opencv_storage>\n':
+            ln = f.readline()
+        f.seek(f.tell() - 18)
+        f.write(string)
+        f.write('</opencv_storage>\n' )
+        f.close()
 
     def write_defaultConfig(self):
         """Write defaultConfig.xml with the ChAruco specific parameters."""
         print('\n')
         self.charuco_square_length = input_float(
-                    'Enter the black square length in cm ')
+                    'Enter the black square length in cm: ')
         self.charuco_marker_size = input_float(
                     'Enter the Aruco marker length in cm: ')
         defaultConfig_path = Path('./data/defaultConfig.xml')
@@ -652,15 +704,10 @@ class Camera(object):
         # <camera_resolution> is an Seq of Integers. In C++ it is written by <<
         # Python bindings must be added to support seq of int as std::vect<int>
 
-        file.release()
-
         # Without updating OpenCV, we seek to append <camera_resolution>
-        f = open(str(defaultConfig_path), 'r+')
-        ln = f.readline()
-        while ln != '</opencv_storage>\n':
-            ln = f.readline()
-        f.seek(f.tell() - 18)
-        f.write('<camera_resolution>\n  %d %d</camera_resolution>\n'
-                '</opencv_storage>\n' % (self.width, self.height))
-        f.close()
+        self.write_append_to_FileStorage(
+            str(defaultConfig_path), string= \
+            '<camera_resolution>\n  %d %d</camera_resolution>\n' % (
+                self.width, self.height))
+        file.release()
 
