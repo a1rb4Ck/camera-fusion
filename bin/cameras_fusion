@@ -1,0 +1,124 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""Multiple Cameras fusion calibration.
+
+  Usage:
+    python3 cameras_fusion.py
+
+"""
+import os
+import sys
+sys.path.insert(
+    0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from camera_fusion import Camera, CamerasFusion
+
+import argparse
+import sys
+try:
+    import cv2
+    from cv2 import aruco
+except ImportError:
+    raise ImportError('ERROR opencv-contrib-python must be installed!')
+
+
+def main(argv):
+    """Setup, calibrate and live display two blended Cameras."""
+    # Get default camera id based on current platform.
+    if sys.platform == 'linux' or sys.platform == 'linux2':
+        default_cam_ids = ['/dev/video0', '/dev/video1', '/dev/video2']
+    else:  # darwin win32 win64
+        default_cam_ids = [0, 1, 2]
+
+    # Parse CLI arguments
+    ap = argparse.ArgumentParser()
+    ap.add_argument('-i', '--cam_ids', default=default_cam_ids,
+                    help="camera ids list (ex: ='[/dev/video0, /dev/video1]'")
+    # TODO: implement dict argument parsing settings
+    ap.add_argument('-s', '--settings',
+                    help="camera settings list "
+                    "(ex:[[(3, 640), (4, 480)], [(3, 640), (4, 480)]]")
+    args = vars(ap.parse_args())
+
+    # Default camera settings
+    if args["settings"]:
+        settings = args["settings"]
+    else:
+        settings = [[(cv2.CAP_PROP_FRAME_WIDTH, 1280),
+                     (cv2.CAP_PROP_FRAME_HEIGHT, 720),
+                     (cv2.CAP_PROP_FPS, 30),
+                     (cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG')),
+                     (cv2.CAP_PROP_AUTOFOCUS, 1)],
+                    [(cv2.CAP_PROP_FRAME_WIDTH, 1280),
+                     (cv2.CAP_PROP_FRAME_HEIGHT, 720),
+                     (cv2.CAP_PROP_FPS, 30),
+                     (cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG')),
+                     (cv2.CAP_PROP_AUTOFOCUS, 1)],
+                    [(cv2.CAP_PROP_FRAME_WIDTH, 1280),
+                     (cv2.CAP_PROP_FRAME_HEIGHT, 720),
+                     (cv2.CAP_PROP_FPS, 30),
+                     (cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG')),
+                     (cv2.CAP_PROP_AUTOFOCUS, 1)]]
+
+    aruco_dict_num = cv2.aruco.DICT_6X6_1000
+    # also available: DICT_5X5_1000, DICT_4X4_50, DICT_ARUCO_ORIGINAL
+
+    # Initialize Cameras objects with calibration and lens correction
+    cam_ids = args['cam_ids']
+    if sys.platform != 'linux' and sys.platform != 'linux2':
+        cam_ids = [int(cam_id) for cam_id in cam_ids]
+    cameras = []
+    for cam_id, setting in zip(cam_ids, settings):
+        print('Setting up camera %s.' % cam_id)
+        cam = Camera(
+            cam_id=cam_id, aruco_dict_num=aruco_dict_num, settings=setting)
+        cam.initialize()
+        cameras.append(cam)
+
+    cameras_fusion = CamerasFusion(cameras)
+    cameras_fusion.initialize()
+
+    # Open basic live view
+    print('Live view running...')
+    print('  k to calibrate correction')
+    print('  m to save frame')
+    print('  v loop between gray2rgb and blue2rgb fusion')
+    print('  ESC or q to exit.')
+
+    selected_fused = cameras_fusion.read_blue2rgb_fused
+    while True:
+        if cameras_fusion.fusion_calibration_is_done:
+            frame = selected_fused()
+            frame = camera[0].draw_fps(frame)
+        else:
+            for camera in cameras_fusion.cameras:
+                frame = camera.read_undistort()
+                frame = camera.draw_text(
+                    frame, 'Please manually adjust Cameras overlapping, then c'
+                    'alibrate.', y=camera.height - (camera.height/20),
+                    thickness=2)
+                k = cv2.waitKey(50) % 256
+                if k == 27 or k == ord('q'):
+                    break
+        cv2.imshow("Live camera", frame)
+        k = cv2.waitKey(40) % 256
+        if k == 27 or k == ord('q'):
+            break
+        elif k == ord('k'):
+            if cameras_fusion.calibrate_fusion():
+                print('Calibration done!')
+        elif k == ord('m'):
+            cv2.imwrite('frame_fused_%s.png' % cam.cam_id, frame)
+        elif k == ord('v'):
+            if selected_fused == cameras_fusion.read_blue2rgb_fused:
+                selected_fused = cameras_fusion.read_gray2rgb_fused
+            else:
+                selected_fused = cameras_fusion.read_blue2rgb_fused
+
+    cameras_fusion.release()  # DO NOT FORGET TO RELEASE!
+    cv2.destroyAllWindows()
+
+
+if __name__ == '__main__':
+    main(sys.argv[1:])
