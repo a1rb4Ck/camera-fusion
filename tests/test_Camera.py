@@ -235,13 +235,15 @@ def test_initialize():
     """Test Camera's initialize function."""
     c = camera_fusion.Camera(0, 11)
     c.settings = [(0, 0), (1, 1), (3, 1280), (4, 720)]
-    c.current_frame = np.load('./tests/test_Camera/real_captured_frame.npy')
+    frame = np.load('./tests/test_Camera/real_captured_frame.npy')
+    c.current_frame = frame
     with mock.patch('cv2.VideoCapture', return_value=Vc(c)):
         with mock.patch('camera_fusion.Camera.calibrate_camera_correction'):
-            c.initialize()
+            with mock.patch('camera_fusion.Camera.read', return_value=frame):
+                c.initialize()
 
 
-def test_read_undistort():  # monkeypatch
+def test_read_undistort():
     """Test the read_undistort function."""
     c = camera_fusion.Camera(0, 11)
     shutil.rmtree('data')
@@ -256,7 +258,7 @@ def test_read_undistort():  # monkeypatch
     shutil.rmtree('data')
 
 
-def test_test_camera():  # monkeypatch
+def test_test_camera():
     """Test the basic camera test."""
     c = camera_fusion.Camera(0, 11)
     shutil.rmtree('data')
@@ -283,8 +285,9 @@ def test__update_frame():
     np.testing.assert_array_equal(c.current_frame, real_captured_frame)
 
 
-def test_write_defaultConfig():  # monkeypatch  # fake_input_float):
+def test_write_defaultConfig():
     """Test write_defaultConfig function."""
+    shutil.rmtree('data')
     c = camera_fusion.Camera(0, 11)
     c.width = 1280
     c.height = 720
