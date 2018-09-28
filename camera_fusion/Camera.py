@@ -231,23 +231,28 @@ class Camera(object):
 
     """
 
-    def __init__(self, cam_id, aruco_dict_num, focus=None, vertical_flip=None, settings=None):
+    def __init__(self, cam_id, aruco_dict_num, focus=None, vertical_flip=None,
+                 settings=None):
         """Initialize the Camera object variables.
 
         Args:
             cam_id (string): Camera or V4L id.
             aruco_dict_num (int): ChAruco dictionnary number used for calibr.
             vertical_flip (bool): Trigger vertical frame flipping.
-            focus (float): Camera focus value for camera which supports focusing.
+            focus (float): Camera focus value for camera which supports focus.
             settings (list): list of tuple with specific camera settings.
         """
         # Resolve cam_id v4l path
-        if 'v4l' in cam_id:
-            cam_id = Path(cam_id).resolve()
-            self.cam_id = int(str(cam_id).replace('/dev/video', ''))
-            print('  Found a v4l camera path, resolved to: %s, cam_id: %d' % (cam_id, self.cam_id))
+        if isinstance(cam_id, str):
+            if 'v4l' in cam_id:
+                cam_id = Path(cam_id).resolve()
+                self.cam_id = int(str(cam_id).replace('/dev/video', ''))
+                print('  Found a v4l camera path, resolved to: %s'
+                      ', cam_id: %d' % (cam_id, self.cam_id))
+            else:
+                self.cam_id = int(cam_id)
         else:
-            self.cam_id = int(cam_id)
+            self.cam_id = cam_id
 
         self.focus = focus
 
@@ -335,7 +340,7 @@ class Camera(object):
         cameraParameters_path = Path(
             './data/cameraParameters_%s.xml' % self.cam_id)
         if not cameraParameters_path.exists():
-            print('\nStarting the camera id%s lens calibration routine.' % self.cam_id)
+            print('\nStarting the camera id%s lens calibration.' % self.cam_id)
             self.cap.release()  # Release VideoCapture before CLI usage
             subprocess.call(
                 ['opencv_interactive-calibration', '-d=0.25', '-h=7', '-w=5',
@@ -360,7 +365,7 @@ class Camera(object):
             self.height = int(calibration_file.getNode(
                 'cameraResolution').at(1).real())
 
-            if calibration_file.getNode('focus').isReal():  # If there is a focus val
+            if calibration_file.getNode('focus').isReal():  # If focus val
                 self.focus = float(calibration_file.getNode('focus').real())
                 self.set_focus(self.focus * 50)
 
@@ -616,8 +621,8 @@ class Camera(object):
             cameraParameters_path = Path(
                 './data/cameraParameters_%s.xml' % self.cam_id)
             self.write_append_to_FileStorage(
-                str(cameraParameters_path), string= \
-                '<focus>%f</focus>\n' % self.focus)
+                str(cameraParameters_path),
+                string='<focus>%f</focus>\n' % self.focus)
 
     def set_camera_settings(self):
         """Set all the camera settings."""
@@ -641,9 +646,11 @@ class Camera(object):
         cv2.namedWindow('Focus', cv2.WINDOW_FREERATIO)
         cv2.resizeWindow('Focus', 600, 30)
         focus = self.focus
-        cv2.createTrackbar('Camera %d focus' % self.cam_id, 'Focus', 0, 20, self.set_focus)
+        cv2.createTrackbar('Camera %d focus' % self.cam_id, 'Focus', 0, 20,
+                           self.set_focus)
         if focus:
-            cv2.setTrackbarPos('Camera %d focus' % self.cam_id, 'Focus', focus)
+            cv2.setTrackbarPos('Camera %d focus' % self.cam_id, 'Focus',
+                               int(focus * 50))
 
     def test_camera(self):
         """Basic camera test."""
@@ -671,7 +678,7 @@ class Camera(object):
             ln = f.readline()
         f.seek(f.tell() - 18)
         f.write(string)
-        f.write('</opencv_storage>\n' )
+        f.write('</opencv_storage>\n')
         f.close()
 
     def write_defaultConfig(self):
@@ -706,8 +713,7 @@ class Camera(object):
 
         # Without updating OpenCV, we seek to append <camera_resolution>
         self.write_append_to_FileStorage(
-            str(defaultConfig_path), string= \
-            '<camera_resolution>\n  %d %d</camera_resolution>\n' % (
+            str(defaultConfig_path),
+            string='<camera_resolution>\n  %d %d</camera_resolution>\n' % (
                 self.width, self.height))
         file.release()
-

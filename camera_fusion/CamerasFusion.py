@@ -123,7 +123,7 @@ class CamerasFusion(object):
                     frame = camera.draw_text(
                         frame, '[Camera %d] STAY STILL %ds'
                         % (camera.cam_id, self.i / 5))
-                    cv2.imshow("Live camera", frame)
+                    cv2.imshow('Live', frame)
                     k = cv2.waitKey(200) % 256
 
                     if self.i < 0:
@@ -142,7 +142,7 @@ class CamerasFusion(object):
         frame = camera.draw_text(
             frame, 'Calibration mode running..',
             y=camera.height - (camera.height/20), thickness=2)
-        cv2.imshow("Live camera", frame)
+        cv2.imshow('Live', frame)
         k = cv2.waitKey(400) % 256
         if k == 27 or k == ord('q'):
             self.running = False
@@ -179,8 +179,8 @@ class CamerasFusion(object):
 
     def read_blue2rgb_fused(self):
         """Fuse 3 cameras blue channel to rgb."""
-        # if len(self.cameras) < 3:
-        #     raise ValueError('Cameras number must be >3 to RGB merge!')
+        if len(self.cameras) < 3:
+            raise ValueError('Cameras number must be >3 to RGB merge!')
         # TODO: threaded warpPerspective transform?
         frames = list([self.cameras[0].read_undistort()])  # refcam wthout homo
         for camera, homography in zip(self.cameras[1:], self.homographies):
@@ -191,12 +191,12 @@ class CamerasFusion(object):
                 frame, homography, (frame.shape[1], frame.shape[0]))
             frames.append(frame)
         return cv2.merge(  # Blue channel
-            (frames[0][:, :, 0], frames[1][:, :, 0], frames[1][:, :, 0]))    # TODO: frame[1] to frame[2]
+            (frames[0][:, :, 0], frames[1][:, :, 0], frames[2][:, :, 0]))
 
     def read_gray2rgb_fused(self):
         """Fuse 3 cameras grayed frames to rgb."""
-        # if len(self.cameras) < 3:
-        #     raise ValueError('Cameras number must be >3 to RGB merge!')
+        if len(self.cameras) < 3:
+            raise ValueError('Cameras number must be >3 to RGB merge!')
         frames = list([self.cameras[0].read_undistort()])  # refcam wthout homo
         # TODO: threaded warpPerspective transform?
         for camera, homography in zip(self.cameras[1:], self.homographies):
@@ -206,7 +206,7 @@ class CamerasFusion(object):
                 frame, homography, (frame.shape[1], frame.shape[0]))
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             frames.append(frame)
-        return cv2.merge((frame[0], frame[1], frame[1]))  # TODO: frame[1] to frame[2]
+        return cv2.merge((frame[0], frame[1], frame[2]))
 
     def read_weighted_fused(self, blending_ratio):
         """Fuse all cameras with weighted blend."""
@@ -251,4 +251,3 @@ class CamerasFusion(object):
             while(camera.thread.is_alive()):
                 time.sleep(0.05)
             print('Camera %d released' % camera.cam_id)
-
