@@ -285,16 +285,16 @@ def test__update_frame():
     np.testing.assert_array_equal(c.current_frame, real_captured_frame)
 
 
-def test_write_defaultConfig():
-    """Test write_defaultConfig function."""
-    shutil.rmtree('data')
-    c = camera_fusion.Camera(0, 11)
-    c.width = 1280
-    c.height = 720
-    with mock.patch('builtins.input', return_value=0.03):
-        c.write_defaultConfig()
-    assert os.path.isfile('./data/defaultConfig.xml')
-    assert filecmp.cmp(
-        './data/defaultConfig.xml',
-        './tests/test_Camera/defaultConfig_assert.xml')
-    shutil.rmtree('data')
+# def test_write_defaultConfig():
+#     """Test write_defaultConfig function."""
+#     shutil.rmtree('data')
+#     c = camera_fusion.Camera(0, 11)
+#     c.width = 1280
+#     c.height = 720
+#     with mock.patch('builtins.input', return_value=0.03):
+#         c.write_defaultConfig()
+#     assert os.path.isfile('./data/defaultConfig.xml')
+#     assert filecmp.cmp(
+#         './data/defaultConfig.xml',
+#         './tests/test_Camera/defaultConfig_assert.xml')
+#     shutil.rmtree('data')

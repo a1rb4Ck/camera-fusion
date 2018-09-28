@@ -710,10 +710,10 @@ class Camera(object):
         #
         # <camera_resolution> is an Seq of Integers. In C++ it is written by <<
         # Python bindings must be added to support seq of int as std::vect<int>
+        file.release()
 
         # Without updating OpenCV, we seek to append <camera_resolution>
         self.write_append_to_FileStorage(
             str(defaultConfig_path),
             string='<camera_resolution>\n  %d %d</camera_resolution>\n' % (
                 self.width, self.height))
-        file.release()
