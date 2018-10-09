@@ -3,7 +3,7 @@
 from enum import Enum
 from pathlib import Path
 import numpy as np
-from threading import Thread
+from threading import Event, Thread
 import time
 import subprocess
 import os
@@ -225,8 +225,9 @@ class Camera(object):
         corners (list): List of detected corners positions as a buffer.
         ids (list): List of detected corners ids as a buffer.
         board_post (PostureBuffer): Buffer to filter the posture of the board.
-        thread (threading.Thread): VideoCapture reading thread.
         settings (list): List of OpenCV VideoCapture (v4l) settings.
+        thread_ready (Event): Thread is ready Event.
+        thread (threading.Thread): VideoCapture reading thread.
         t0 (time.time): Time counter buffer.
 
     """
@@ -275,6 +276,7 @@ class Camera(object):
         self.board_post = PostureBuffer()
 
         # VideoCapture reading Thread
+        self.thread_ready = Event()
         self.thread = Thread(target=self._update_frame, args=())
 
         # Parameter files folder
@@ -300,6 +302,7 @@ class Camera(object):
         # Start the VideoCapture read() thread
         self.stop = False
         self.start_camera_thread()
+        self.thread_ready.wait()
 
         # Quick test
         self.test_camera()
@@ -589,7 +592,7 @@ class Camera(object):
     def start_camera_thread(self):
         """Start the Camera frame update Thread."""
         self.thread.start()
-        time.sleep(0.5)
+        self.thread_ready.wait()  # block until thread created a current_frame
 
     def _update_frame(self):
         """Read VideoCapture to update Camera current frame."""
@@ -598,10 +601,11 @@ class Camera(object):
                 break
             ret, frame = self.cap.read()
             if ret is False:
-                print('%s | Error reading frame!' % self.cam_id)
+                print('Cam %s | Error reading frame!' % self.cam_id)
             if self.vertical_flip:
                 frame = cv2.flip(frame, -1)
             self.current_frame = frame
+            self.thread_ready.set()
 
     def read_undistort(self):
         """Read an undistored camera frame."""

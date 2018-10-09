@@ -11,6 +11,6 @@ Classes:
 from .Camera import Camera
 from .CamerasFusion import CamerasFusion
 
-__version__ = '0.0.5'
+__version__ = '0.0.6'
 __author__ = 'Pierre Nagorny'
 __email__ = 'pierre.nagorny@univ-smb.fr'
