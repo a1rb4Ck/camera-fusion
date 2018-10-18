@@ -285,7 +285,7 @@ class Camera(object):
 
     def initialize(self):
         """Set up camera and launch calibration routing."""
-        self.cap = cv2.VideoCapture(self.cam_id)
+        self.cap = cv2.VideoCapture(self.cam_id, cv2.CAP_V4L2)
 
         if not self.cap.isOpened():
             raise ValueError('Camera', self.cam_id, 'not found!')
@@ -353,7 +353,7 @@ class Camera(object):
                  '-of=' + str(cameraParameters_path),
                  '-flip=' + str(self.vertical_flip).lower()])
 
-            self.cap = cv2.VideoCapture(self.cam_id)
+            self.cap = cv2.VideoCapture(self.cam_id, cv2.CAP_V4L2)
             self.set_camera_settings()  # Re-set camera settings
 
         # Load the camera calibration file.
