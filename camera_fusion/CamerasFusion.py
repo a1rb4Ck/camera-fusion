@@ -180,7 +180,7 @@ class CamerasFusion(object):
     def read_blue2rgb_fused(self):
         """Fuse 3 cameras blue channel to rgb."""
         if len(self.cameras) < 3:
-            raise ValueError('Cameras number must be >3 to RGB merge!')
+            raise ValueError('Cameras number must be >=3 to RGB merge!')
         # TODO: threaded warpPerspective transform?
         frames = list([self.cameras[0].read_undistort()])  # refcam wthout homo
         for camera, homography in zip(self.cameras[1:], self.homographies):
@@ -196,9 +196,11 @@ class CamerasFusion(object):
     def read_gray2rgb_fused(self):
         """Fuse 3 cameras grayed frames to rgb."""
         if len(self.cameras) < 3:
-            raise ValueError('Cameras number must be >3 to RGB merge!')
-        frames = list([self.cameras[0].read_undistort()])  # refcam wthout homo
+            raise ValueError('Cameras number must be >=3 to RGB merge!')
         # TODO: threaded warpPerspective transform?
+        frames = cv2.cvtColor(self.cameras[0].read_undistort(),
+                              cv2.COLOR_BGR2GRAY)  # Get first cam in grayscale
+        frames = list([frames])  # refcam without homography
         for camera, homography in zip(self.cameras[1:], self.homographies):
             frame = camera.read_undistort()
             # Perspective transform to fuse multiple camera frames
@@ -206,9 +208,10 @@ class CamerasFusion(object):
                 frame, homography, (frame.shape[1], frame.shape[0]))
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             frames.append(frame)
-        return cv2.merge((frame[0], frame[1], frame[2]))
+        return cv2.merge(  # Gray channel
+            (frames[0], frames[1], frames[2]))
 
-    def read_weighted_fused(self, blending_ratio):
+    def read_weighted_fused(self, blending_ratio=None):
         """Fuse all cameras with weighted blend."""
         if blending_ratio is None:
             blending_ratio = 1 / len(self.cameras)
@@ -220,7 +223,8 @@ class CamerasFusion(object):
             frame = cv2.warpPerspective(
                 frame, homography, (frame.shape[1], frame.shape[0]))
             frames.append(frame)
-        for frame in frames:
+        frame_out = frames[0]
+        for frame in frames[1:]:
             frame_out = cv2.addWeighted(
                 frame_out, 1 - blending_ratio, frame, blending_ratio, 0)
         return frame_out
@@ -237,11 +241,31 @@ class CamerasFusion(object):
             frame = cv2.warpPerspective(
                 frame, homography, (frame.shape[1], frame.shape[0]))
             frames.append(frame)
+        frame_out = frames[0]
         for frame in frames[1:]:
             frame_out = cv2.addWeighted(
                 frame_out, 1 - blending_ratio, frame - frames[0],
                 blending_ratio, 0)
         return frame_out
+
+    def read_sub2rgb_fused(self):
+        """Substract fusion to RGB colormap."""
+        if len(self.cameras) != 3:
+            raise ValueError('Cameras number must be 3 to RGBsubstract merge!')
+        # TODO: threaded warpPerspective transform?
+        frames = cv2.cvtColor(self.cameras[0].read_undistort(),
+                              cv2.COLOR_BGR2GRAY)  # Get first cam in grayscale
+
+        frames = list([frames])  # refcam without homography
+        for camera, homography in zip(self.cameras[1:], self.homographies):
+            frame = camera.read_undistort()
+            # Perspective transform to fuse multiple camera frames
+            frame = cv2.warpPerspective(
+                frame, homography, (frame.shape[1], frame.shape[0]))
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            frames.append(frames[0] - frame)
+        return cv2.merge(  # Gray channels to BGR
+            (frames[0], frames[1], frames[2]))
 
     def release(self):
         """Release all Camera VideoCapture instances."""
