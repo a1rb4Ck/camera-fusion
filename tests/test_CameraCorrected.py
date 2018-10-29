@@ -266,9 +266,8 @@ def test_read_undistort():
 
 def test_test_camera():
     """Test the basic camera test."""
-    c = camera_fusion.CameraCorrected(0, 11)
-    shutil.rmtree('data')
     shutil.copytree('./tests/test_CameraCorrected', 'data')
+    c = camera_fusion.CameraCorrected(0, 11)
     c.calibrate_camera_correction()
     # Testing camera setup
     with mock.patch('camera_fusion.CameraCorrected.read',

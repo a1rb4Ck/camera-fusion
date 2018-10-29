@@ -96,9 +96,7 @@ def test_initialize():
 
 def test_test_camera():
     """Test the basic camera test."""
-    # c = camera_fusion.Camera(0, 11)
-    # shutil.rmtree('data')
-    # shutil.copytree('./tests/test_Camera', 'data')
+    shutil.copytree('./tests/test_Camera', 'data')
     c = camera_fusion.Camera(0, 11)
     c.settings = [(0, 0), (1, 1), (3, 1280), (4, 720)]
     frame = np.load('./tests/test_Camera/real_captured_frame.npy')
@@ -112,14 +110,13 @@ def test_test_camera():
             c.width = 1280
             c.height = 720
             c.test_camera()
-    # shutil.rmtree('data')
+    shutil.rmtree('data')
 
 
 def test__update_frame():
     """Test the _update_frame function."""
     c = camera_fusion.Camera(0, 11)
     c.stop = False
-    shutil.rmtree('data')
     shutil.copytree('./tests/test_Camera', 'data')
     # Testing camera frame read and update
     real_captured_frame = np.load('./data/real_captured_frame.npy')
