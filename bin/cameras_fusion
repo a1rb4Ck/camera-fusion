@@ -12,7 +12,7 @@ import sys
 sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from camera_fusion import Camera, CamerasFusion
+from camera_fusion import CameraCorrected, CamerasFusion
 
 import argparse
 import sys
@@ -71,7 +71,7 @@ def main(argv):
     cameras = []
     for cam_id, setting in zip(cam_ids, settings):
         print('Setting up camera %s.' % cam_id)
-        cam = Camera(
+        cam = CameraCorrected(
             cam_id=cam_id, aruco_dict_num=aruco_dict_num, settings=setting)
         cam.initialize()
         cameras.append(cam)

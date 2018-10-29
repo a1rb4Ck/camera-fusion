@@ -12,7 +12,7 @@ import sys
 sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from camera_fusion import Camera
+from camera_fusion import CameraCorrected
 
 import argparse
 import sys
@@ -60,7 +60,7 @@ def main(argv):
     aruco_dict_num = cv2.aruco.DICT_6X6_1000
     # also available: DICT_5X5_1000, DICT_4X4_50, DICT_ARUCO_ORIGINAL
 
-    cam = Camera(cam_id=cam_id, aruco_dict_num=aruco_dict_num,
+    cam = CameraCorrected(cam_id=cam_id, aruco_dict_num=aruco_dict_num,
                  settings=settings)
     cam.initialize()
 

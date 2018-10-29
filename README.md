@@ -38,7 +38,7 @@ python3 ./bin/camera_calibration
 Generate homographies between multiple cameras to fuse/blend on a specific plane. If no lens correction calibration exist for the cameras, they will be generate.
 
 ```bash
-python3 ./bin/camera_calibration
+python3 ./bin/camera_fusion
 ```
 
 Simple blending methods are implemented:

@@ -1,6 +1,6 @@
 """OpenCV CamerasFusion class for multiple cameras fusion."""
 
-from camera_fusion.Camera import Camera
+from camera_fusion.CameraCorrected import CameraCorrected
 
 import argparse
 from enum import Enum
@@ -18,19 +18,19 @@ except ImportError:
 
 
 class CamerasFusion(object):
-    """CamerasFusion class used to match and fuse many corrected Camera.
+    """CamerasFusion class used to match and fuse many corrected vamera.
 
     Attributes:
-        cameras (list of Camera): list of corrected Camera to be fused.
+        cameras (list of CameraCorrected): list of corrected cam to be fused.
         homographies (list): Homography matrix between 1st and current cam.
 
     """
 
     def __init__(self, cameras):
-        """Initialize the Camera object variables.
+        """Initialize the CameraCorrected object variables.
 
         Args:
-            cameras (list of Camera): Cameras to be blend.
+            cameras (list of CameraCorrected): cameras to be blend.
         """
         if len(cameras) == 0:
             raise ValueError('Cameras list is empty!')
@@ -60,11 +60,11 @@ class CamerasFusion(object):
             self.calibrate_fusion()
 
     def calibrate_fusion(self):
-        """Launch calibration routing for the fusion of all Cameras."""
+        """Launch calibration routing for the fusion of all cameras."""
         print('Starting the fusion calibration routine.')
         keypoints_features_list = []
         self.homographies = []
-        # Loop thru Cameras and assure every Camera matches the same keypoints.
+        # Loop thru cameras and assure every one matches the same keypoints.
         while self.running:
             for camera in self.cameras:
                 camera.corners, camera.ids = self.detect_keypoints(camera)
@@ -73,7 +73,7 @@ class CamerasFusion(object):
                 break
         if not self.running:
             return False
-        # Match features between many Cameras detected corners keypoints
+        # Match features between many cameras detected corners keypoints
         for camera in self.cameras[1:]:
             H = self.match_keypoints(
                 self.cameras[0].corners, camera.corners,
@@ -91,7 +91,7 @@ class CamerasFusion(object):
         print("Fusion calibration done!")
 
     def detect_keypoints(self, camera):
-        """Detect ChAruco corner keypoints in a corrected Camera frame."""
+        """Detect ChAruco corner keypoints in a corrected camera frame."""
         # https://www.pyimagesearch.com/2016/01/11/opencv-panorama-stitching/
         # http://www.morethantechnical.com/2017/11/17/projector-camera-calibration-the-easy-way/
         # frame = camera.read()

@@ -1,4 +1,4 @@
 coverage-badge >= 0.2.0
-numpy >= 1.15.1
+numpy >= 1.15.3
 opencv-contrib-python >= 3.4.3.18
 sortednp >= 0.2.0
