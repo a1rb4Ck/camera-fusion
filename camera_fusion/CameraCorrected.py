@@ -162,7 +162,10 @@ class CameraCorrected(Camera):
                  '-of=' + str(cameraParameters_path),
                  '-flip=' + str(self.vertical_flip).lower()])
 
-            self.cap = cv2.VideoCapture(self.cam_id, cv2.CAP_V4L2)
+            if sys.platform == "linux" or platform == "linux2":
+                self.cap = cv2.VideoCapture(self.cam_path, cv2.CAP_V4L2)
+            else:
+                self.cap = cv2.VideoCapture(self.cam_id)
             self.set_camera_settings()  # Re-set camera settings
 
         # Load the camera calibration file.

@@ -13,6 +13,6 @@ from .Camera import Camera
 from .CameraCorrected import CameraCorrected
 from .CamerasFusion import CamerasFusion
 
-__version__ = '0.0.7'
+__version__ = '0.0.8'
 __author__ = 'Pierre Nagorny'
 __email__ = 'pierre.nagorny@univ-smb.fr'

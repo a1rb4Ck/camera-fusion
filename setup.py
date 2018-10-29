@@ -8,7 +8,7 @@ with open('README.md', 'r') as fh:
 
 setup(
     name='camera-fusion',
-    version='0.0.7',
+    version='0.0.8',
     author='Pierre Nagorny',
     author_email='pierre.nagorny@univ-smb.fr',
     description='Multiple cameras calibration and fusion with OpenCV Python.',

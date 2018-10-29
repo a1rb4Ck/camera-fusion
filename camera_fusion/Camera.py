@@ -3,6 +3,7 @@
 from enum import Enum
 from pathlib import Path
 from threading import Event, Thread
+from sys import platform
 import time
 try:
     import cv2
@@ -17,6 +18,7 @@ class Camera(object):
     Attributes:
         cap (VideoCapture): OpenCV VideoCapture element.
         cam_id (string): Camera or V4L id (ex: /dev/video0 /dev/v4l_by_id/...).
+        cam_path (string): Camera path.
         height (int): Camera frame height in pixels.
         width (int): Camera frame width in pixels.
         settings (list): List of OpenCV VideoCapture (v4l) settings.
@@ -35,16 +37,24 @@ class Camera(object):
             settings (list): list of tuple with specific camera settings.
         """
         # Resolve cam_id v4l path
-        if isinstance(cam_id, int):
-            # self.cam_id = '/dev/video' + str(cam_id)
-            self.cam_id = str(cam_id)
-        elif 'v4l' in cam_id:
-            self.cam_id = Path(cam_id).resolve()
-            # self.cam_id = int(str(cam_id).replace('/dev/video', ''))
-            print('  Found a v4l camera path, resolved to: %s'
-                  ', cam_id: %s' % (cam_id, self.cam_id))
+        if platform == "linux" or platform == "linux2":
+            if isinstance(cam_id, int):
+                raise ValueError(
+                    'Camera id must be a valid path, not <int>',
+                    ' (ex: /dev/video0).')
+            self.cam_path = str(cam_id)
+            if 'v4l' in cam_id:
+                cam_path = str(Path(cam_id).resolve())
+                self.cam_id = int(cam_path.replace('/dev/video', ''))
+                print('  Found a v4l camera path, resolved to: %s'
+                      ', cam_id: %d' % (cam_path, self.cam_id))
         else:
-            self.cam_id = cam_id
+            if isinstance(cam_id, str):
+                self.cam_id = int(cam_id)
+                self.cam_path = cam_id
+            else:
+                self.cam_id = cam_id
+                self.cam_path = str(cam_id)
 
         if vertical_flip is True:
             print('Set vertical flip.')
@@ -137,7 +147,10 @@ class Camera(object):
 
     def _setup(self):
         """Set up the camera."""
-        self.cap = cv2.VideoCapture(self.cam_id, cv2.CAP_V4L2)
+        if platform == "linux" or platform == "linux2":
+            self.cap = cv2.VideoCapture(self.cam_path, cv2.CAP_V4L2)
+        else:
+            self.cap = cv2.VideoCapture(self.cam_id)
 
         if not self.cap.isOpened():
             raise ValueError('Camera', self.cam_id, 'not found!')
