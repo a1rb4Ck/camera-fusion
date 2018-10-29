@@ -42,7 +42,7 @@ class Camera(object):
             self.cam_id = Path(cam_id).resolve()
             # self.cam_id = int(str(cam_id).replace('/dev/video', ''))
             print('  Found a v4l camera path, resolved to: %s'
-                  ', cam_id: %d' % (cam_id, self.cam_id))
+                  ', cam_id: %s' % (cam_id, self.cam_id))
         else:
             self.cam_id = cam_id
 
