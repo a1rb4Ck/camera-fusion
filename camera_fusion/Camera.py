@@ -36,6 +36,9 @@ class Camera(object):
             vertical_flip (bool): Trigger vertical frame flipping.
             settings (list): list of tuple with specific camera settings.
         """
+        if not Path(cam_id).exists():
+            raise ValueError('Camera path does not exist.'
+                             ' Check hardware links: %s' % cam_id)
         # Resolve cam_id v4l path
         if platform == "linux" or platform == "linux2":
             if isinstance(cam_id, int):
@@ -276,3 +279,4 @@ class CV_CAP_PROP(Enum):
     CV_CAP_PROP_IOS_DEVICE_FLASH = 9003
     CV_CAP_PROP_IOS_DEVICE_WHITEBALANCE = 9004
     CV_CAP_PROP_IOS_DEVICE_TORCH = 9005
+
