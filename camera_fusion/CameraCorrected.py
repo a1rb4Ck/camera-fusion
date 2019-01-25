@@ -367,9 +367,13 @@ class CameraCorrected(Camera):
                 './data/cameraParameters_%s.xml' % self.cam_name)
             self.write_delete_from_FileStorage(
                 str(cameraParameters_path), string='<focus>')
+            if cv2.__version__[0] == '4':
+                focus = self.focus / 250
+            else:
+                focus = self.focus
             self.write_append_to_FileStorage(
                 str(cameraParameters_path),
-                string='<focus>%f</focus>\n' % self.focus)
+                string='<focus>%f</focus>\n' % focus)
             print('  Saved focus value %f in %s' % (
                 self.focus, cameraParameters_path))
 
@@ -380,7 +384,6 @@ class CameraCorrected(Camera):
         # OPENCV4+:
         #  min: 0.0 (infinity), max: 250 (1cm), increment:5.0 for C525 & C920
         if cv2.__version__[0] == '4':
-            print('opencv4')
             self.cap.set(28, int(focus * 5))  # CV_CAP_PROP_FOCUS
         else:
             self.cap.set(28, focus * 0.02)  # CV_CAP_PROP_FOCUS
@@ -401,7 +404,7 @@ class CameraCorrected(Camera):
         if focus:
             if cv2.__version__[0] == '4':
                 cv2.setTrackbarPos('Camera %d focus' % self.cam_id, 'Focus',
-                                   int(focus))
+                                   int(focus / 5))
             else:
                 cv2.setTrackbarPos('Camera %d focus' % self.cam_id, 'Focus',
                                    int(focus * 50))
