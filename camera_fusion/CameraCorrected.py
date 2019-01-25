@@ -55,7 +55,8 @@ class CameraCorrected(Camera):
         aruco_dict_num (int): ChAruco dictionnary number used for calibr.
         board (CharucoBoard): ChAruco board object used for calibration.
         cap (VideoCapture): OpenCV VideoCapture element.
-        cam_id (string): Camera or V4L id (ex: /dev/video0 /dev/v4l_by_id/...).
+        cam_id (int or string): Camera id or unix path.
+        cam_name (string): Camera path as a valid filename.
         charuco_marker_size (float): black square length on the printed board.
         charuco_square_length (float): Aruco marker length on the print.
         focus (float): Camera focus value for camera which supports focusing.
@@ -78,7 +79,7 @@ class CameraCorrected(Camera):
         """Initialize the CameraCorrected object variables.
 
         Args:
-            cam_id (string): Camera or V4L id.
+            cam_id (int or string): Camera or V4L id.
             aruco_dict_num (int): ChAruco dictionnary number used for calibr.
             vertical_flip (bool): Trigger vertical frame flipping.
             focus (float): Camera focus value for camera which supports focus.
@@ -150,7 +151,7 @@ class CameraCorrected(Camera):
         # Create specific camera calibration if no one already exists
         # using the opencv_interactive-calibration program.
         cameraParameters_path = Path(
-            './data/cameraParameters_%s.xml' % self.cam_id)
+            './data/cameraParameters_%s.xml' % self.cam_name)
         if not cameraParameters_path.exists():
             print('\nStarting the camera id%s lens calibration.' % self.cam_id)
             self.cap.release()  # Release VideoCapture before CLI usage
@@ -170,7 +171,7 @@ class CameraCorrected(Camera):
 
         # Load the camera calibration file.
         if cameraParameters_path.exists():
-            print('  Found cameraParameters_%s.xml' % self.cam_id)
+            print('  Found cameraParameters_%s.xml' % self.cam_name)
             calibration_file = cv2.FileStorage(
                 str(cameraParameters_path), cv2.FILE_STORAGE_READ)
             self.camera_matrix = calibration_file.getNode('cameraMatrix').mat()
@@ -193,7 +194,7 @@ class CameraCorrected(Camera):
             raise ValueError(
                 "cameraParameters_%s.xml not found!\n\t"
                 "Please finish the calibration and press 's' to save to file."
-                % self.cam_id)
+                % self.cam_name)
 
         self.board = cv2.aruco.CharucoBoard_create(
                 5, 7, self.charuco_square_length, self.charuco_marker_size,
@@ -363,15 +364,26 @@ class CameraCorrected(Camera):
         """Save the camera focus value to the cameraParameters.xml file."""
         if self.focus:
             cameraParameters_path = Path(
-                './data/cameraParameters_%s.xml' % self.cam_id)
+                './data/cameraParameters_%s.xml' % self.cam_name)
+            self.write_delete_from_FileStorage(
+                str(cameraParameters_path), string='<focus>')
             self.write_append_to_FileStorage(
                 str(cameraParameters_path),
                 string='<focus>%f</focus>\n' % self.focus)
+            print('  Saved focus value %f in %s' % (
+                self.focus, cameraParameters_path))
 
     def set_focus(self, focus):
         """Set camera focus."""
-        self.cap.set(28, focus * 0.02)  # CV_CAP_PROP_FOCUS
-        # min: 0.0 (infinity), max: 1.0 (1cm), increment:0.02 for C525 & C920
+        # OPENCV3:
+        #  min: 0.0 (infinity), max: 1.0 (1cm), increment:0.02 for C525 & C920
+        # OPENCV4+:
+        #  min: 0.0 (infinity), max: 250 (1cm), increment:5.0 for C525 & C920
+        if cv2.__version__[0] == '4':
+            print('opencv4')
+            self.cap.set(28, int(focus * 5))  # CV_CAP_PROP_FOCUS
+        else:
+            self.cap.set(28, focus * 0.02)  # CV_CAP_PROP_FOCUS
         self.focus = self.cap.get(28)
         print('Camera %d | Focus set:%f' % (self.cam_id, self.focus))
 
@@ -380,11 +392,19 @@ class CameraCorrected(Camera):
         cv2.namedWindow('Focus', cv2.WINDOW_FREERATIO)
         cv2.resizeWindow('Focus', 600, 30)
         focus = self.focus
-        cv2.createTrackbar('Camera %d focus' % self.cam_id, 'Focus', 0, 20,
-                           self.set_focus)
+        if cv2.__version__[0] == '4':
+            cv2.createTrackbar('Camera %d focus' % self.cam_id, 'Focus', 0, 50,
+                               self.set_focus)
+        else:
+            cv2.createTrackbar('Camera %d focus' % self.cam_id, 'Focus', 0, 20,
+                               self.set_focus)
         if focus:
-            cv2.setTrackbarPos('Camera %d focus' % self.cam_id, 'Focus',
-                               int(focus * 50))
+            if cv2.__version__[0] == '4':
+                cv2.setTrackbarPos('Camera %d focus' % self.cam_id, 'Focus',
+                                   int(focus))
+            else:
+                cv2.setTrackbarPos('Camera %d focus' % self.cam_id, 'Focus',
+                                   int(focus * 50))
 
     def write_append_to_FileStorage(self, str_path, string):
         """Append a string to a .xml file opened with cv2.FileStorage.
@@ -439,6 +459,23 @@ class CameraCorrected(Camera):
             str(defaultConfig_path),
             string='<camera_resolution>\n  %d %d</camera_resolution>\n' % (
                 self.width, self.height))
+
+    def write_delete_from_FileStorage(self, str_path, string):
+        """Delete a line from a .xml file opened with cv2.FileStorage.
+
+        Args:
+            str_path (str): the file path to delete the line.
+            string (str): a string present in the line to delete.
+
+        """
+        f = open(str_path, 'r+')
+        lines = f.readlines()
+        f.seek(0)
+        for line in lines:
+            if string not in line:
+                f.write(line)
+        f.truncate()
+        f.close()
 
 
 class PostureBuffer(object):

@@ -2,8 +2,9 @@
 
 from enum import Enum
 from pathlib import Path
-from threading import Event, Thread
+import re
 from sys import platform
+from threading import Event, Thread
 import time
 try:
     import cv2
@@ -17,7 +18,8 @@ class Camera(object):
 
     Attributes:
         cap (VideoCapture): OpenCV VideoCapture element.
-        cam_id (string): Camera or V4L id (ex: /dev/video0 /dev/v4l_by_id/...).
+        cam_id (int or string): Camera id or unix path.
+        cam_name (string): Camera path as a valid filename.
         cam_path (string): Camera path.
         height (int): Camera frame height in pixels.
         width (int): Camera frame width in pixels.
@@ -32,25 +34,30 @@ class Camera(object):
         """Initialize the Camera object variables.
 
         Args:
-            cam_id (string): Camera or V4L id.
+            cam_id (int or string): Camera or V4L id.
             vertical_flip (bool): Trigger vertical frame flipping.
             settings (list): list of tuple with specific camera settings.
         """
-        if not Path(cam_id).exists():
-            raise ValueError('Camera path does not exist.'
-                             ' Check hardware links: %s' % cam_id)
+        self.cam_name = get_valid_filename(cam_id)
         # Resolve cam_id v4l path
         if platform == "linux" or platform == "linux2":
             if isinstance(cam_id, int):
-                raise ValueError(
-                    'Camera id must be a valid path, not <int>',
-                    ' (ex: /dev/video0).')
-            self.cam_path = str(cam_id)
-            if 'v4l' in cam_id:
-                cam_path = str(Path(cam_id).resolve())
-                self.cam_id = int(cam_path.replace('/dev/video', ''))
-                print('  Found a v4l camera path, resolved to: %s'
-                      ', cam_id: %d' % (cam_path, self.cam_id))
+                print('WARNING: cam_id is an <int>.')
+                print('  You should consider moving to a <str> for ',
+                      'reproductible parameters saving.')
+                print('      ex: /dev/video0, or even better /dev/v4l/',
+                      'by-id/CAM')
+                self.cam_id = cam_id
+                self.cam_path = self.cam_id
+            else:
+                if not Path(cam_id).exists():
+                    raise ValueError('Camera path does not exist.'
+                                     ' Check hardware links: %s' % cam_id)
+                if 'v4l' in cam_id:
+                    self.cam_path = str(Path(cam_id).resolve())
+                    self.cam_id = int(self.cam_path.replace('/dev/video', ''))
+                    print('  Found a v4l camera path, resolved to: %s'
+                          ', cam_id: %d' % (self.cam_path, self.cam_id))
         else:
             if isinstance(cam_id, str):
                 self.cam_id = int(cam_id)
@@ -280,3 +287,11 @@ class CV_CAP_PROP(Enum):
     CV_CAP_PROP_IOS_DEVICE_WHITEBALANCE = 9004
     CV_CAP_PROP_IOS_DEVICE_TORCH = 9005
 
+
+def get_valid_filename(s):
+    """Return a valid filename.
+
+    https://github.com/django/django/blob/master/django/utils/text.py
+    """
+    s = str(s).strip().replace(' ', '_')
+    return re.sub(r'(?u)[^-\w.]', '', s)
